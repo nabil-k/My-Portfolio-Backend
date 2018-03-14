@@ -7,6 +7,8 @@ const mongoose = require('mongoose');
 const routes = require('./server/routes/routes');
 var cors = require('cors')
 
+
+
 app.use(cors()) // Use this after the variable declaration
 
 // Parsers

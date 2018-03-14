@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-exports.user = mongoose.Schema({
+var userSchema = mongoose.Schema({
     name: String,
     email:String,
     password:String,
@@ -17,3 +17,6 @@ exports.user = mongoose.Schema({
         default: Date.now()
     }
   })
+
+
+module.exports = userSchema;

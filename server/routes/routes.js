@@ -6,14 +6,35 @@ var request = require('request');
 var router = express.Router();
 const mongoose = require('mongoose');
 var app = express();
-var cors = require('cors')
+var cors = require('cors');
+var bcrypt = require('bcrypt');
+var salt = 10;
+
 
 //Schemas
 var messageSchema = require('../schemas/messageSchema');
 var userSchema = require('../schemas/userSchema');
 
+
+// Hashing
+
+userSchema.pre('save',function(next){
+    var user = this;
+    if (!user.isModified('password')) return next();
+
+    bcrypt.genSalt(salt, function(err, salt){
+        if(err) return next(err);
+
+        bycrypt.hash(User.password, salt, function(err,hash){
+            if(err) return next(err);
+
+            user.password = hash
+        })
+    })
+})
+
 var Message = mongoose.model('messages', messageSchema.message);
-var User = mongoose.model('user',userSchema.user)
+var User = mongoose.model('user',userSchema)
 
 const dbUrl = 'mongodb://nabil:wade5693@ds147668.mlab.com:47668/my-portfolio';
 const riotUrl = 'https://na1.api.riotgames.com'
@@ -24,9 +45,9 @@ var summonerMatchesUrl = riotUrl + '/lol/match/v3/matchlists/by-account/23508243
 
 
 // middle ware
-app.use(bodyParser.urlencoded({extended: true}));
-app.use(bodyParser.json());
-app.use(cors({origin: true, credentials: true}));
+// app.use(bodyParser.urlencoded({extended: true}));
+// app.use(bodyParser.json());
+// app.use(cors({origin: true, credentials: true}));
 
 // Mongoose Setup
 mongoose.connect(dbUrl);
@@ -86,6 +107,7 @@ router.post('/newMessages', (req, res) => {
         })
 });
 
+// Registers user
 router.post('/admin/register',(req,res)=>{
     var newUser = new User(req.body)
     newUser.save(function(err,data){
@@ -99,7 +121,7 @@ router.post('/admin/register',(req,res)=>{
     })
 })
 
-
+// Logs users in
 router.post('/admin/login',(req,res)=>{
     User.findOne({"email": req.body.email}, 'password', function (err,data){
         if (err) throw err;
