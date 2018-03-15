@@ -2,13 +2,18 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
 const http = require('http');
-var request = require('request');
+const jwt = require('jsonwebtoken')
+const request = require('request');
 var router = express.Router();
 const mongoose = require('mongoose');
 var app = express();
 var cors = require('cors');
 var bcrypt = require('bcrypt');
+
+
 var salt = 10;
+
+var validPassword = false;
 
 
 //Schemas
@@ -16,25 +21,37 @@ var messageSchema = require('../schemas/messageSchema');
 var userSchema = require('../schemas/userSchema');
 
 
-// Hashing
 
-userSchema.pre('save',function(next){
-    var user = this;
-    if (!user.isModified('password')) return next();
 
-    bcrypt.genSalt(salt, function(err, salt){
-        if(err) return next(err);
 
-        bycrypt.hash(User.password, salt, function(err,hash){
-            if(err) return next(err);
+// var xssService = {
+//     sanitize: function (req, res, next) {
+//         var data = req.body
+//         for (var key in data) {
+//             if (data.hasOwnProperty(key)) {
+//                 data[key] = xss(data[key]);
+//                 console.log(data[key]);
+//             }
 
-            user.password = hash
+//         }
+//         next();
+//     }
+
+// }
+
+var bcryptService = {
+    hash: function (req, res, next) {
+        bcrypt.hash(req.body.password, salt, function (err, res) {
+            if (err) throw err;
+            req.body.password = res;
+            console.log(res)
+            next();
         })
-    })
-})
+    }
+}
 
 var Message = mongoose.model('messages', messageSchema.message);
-var User = mongoose.model('user',userSchema)
+var User = mongoose.model('user', userSchema)
 
 const dbUrl = 'mongodb://nabil:wade5693@ds147668.mlab.com:47668/my-portfolio';
 const riotUrl = 'https://na1.api.riotgames.com'
@@ -55,8 +72,8 @@ const db = mongoose.connection;
 db.on('error', console.error.bind(console, 'connection error:'));
 
 db.once('open', function () {
-  console.log("Connected To Mongoose")
-  
+    console.log("Connected To Mongoose")
+
 });
 
 router.get('')
@@ -70,26 +87,26 @@ router.get('/messages', (req, res) => {
     });
 });
 
-router.get('/LoLMastery', (req,res)=>{
-    request.get({ url: masteryUrl },   function(error, response, body) {
-        if (!error && response.statusCode == 200) { 
-            res.send(body); 
-           }  
+router.get('/LoLMastery', (req, res) => {
+    request.get({ url: masteryUrl }, function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+            res.send(body);
+        }
     })
 });
 
-router.get('/LoLSummonerInfo', (req,res)=>{
-    request.get({url: summonerUrl}, function(error,response,body){
-        if(!error && response.statusCode == 200){
+router.get('/LoLSummonerInfo', (req, res) => {
+    request.get({ url: summonerUrl }, function (error, response, body) {
+        if (!error && response.statusCode == 200) {
             res.send(body);
         }
     })
 });
 
 
-router.get('/LoLSummonerMatches', (req, res)=>{
-    request.get({url: summonerMatchesUrl}, function (error, response, body){
-        if (!error && response.statusCode == 200){
+router.get('/LoLSummonerMatches', (req, res) => {
+    request.get({ url: summonerMatchesUrl }, function (error, response, body) {
+        if (!error && response.statusCode == 200) {
             res.send(body)
         }
     })
@@ -108,9 +125,9 @@ router.post('/newMessages', (req, res) => {
 });
 
 // Registers user
-router.post('/admin/register',(req,res)=>{
+router.post('/admin/register', bcryptService.hash, (req, res) => {
     var newUser = new User(req.body)
-    newUser.save(function(err,data){
+    newUser.save(function (err, data) {
         if (err) throw err;
         console.log("user registered");
         res.status(200).send({
@@ -121,28 +138,43 @@ router.post('/admin/register',(req,res)=>{
     })
 })
 
+
+
 // Logs users in
-router.post('/admin/login',(req,res)=>{
-    User.findOne({"email": req.body.email}, 'password', function (err,data){
+router.post('/admin/login',(req, res) => {
+    User.findOne({ "email": req.body.email }, 'password name', function (err, data) {
         if (err) throw err;
         console.log(data)
-        if (data === null){
+        if (data === null) {
             res.status(200).send({
-                type:true,
-                data:"invalid Email"
+                type: true,
+                data: "invalid Email"
             })
-        }else{
-            if(req.body.password === data.password){
-                res.status(200).send({
-                    type:true,
-                    data:"Successfully Logged In"
-                })
-            }else{
-                res.status(200).send({
-                    type:true,
-                    data:"invalid Password"
-                })
-            }
+        } else {
+            bcrypt.compare(req.body.password, data.password, function (err, resp) {
+                if (err) throw err;
+
+                user = {name: req.body.name}
+    
+                if (resp == true) {
+
+                    const token = jwt.sign({user},'secret_key');
+
+                    console.log("user's token: ",token)
+
+
+                    res.status(200).send({
+                        type: true,
+                        data: "Successfully Logged In"
+                    })
+                } else {
+                    res.status(200).send({
+                        type: true,
+                        data: "invalid Password"
+                    })
+                }
+                console.log("Password:",resp)
+            })
         }
     })
 })
