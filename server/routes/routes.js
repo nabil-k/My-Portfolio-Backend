@@ -9,35 +9,40 @@ const mongoose = require('mongoose');
 var app = express();
 var cors = require('cors');
 var bcrypt = require('bcrypt');
-
-
 var salt = 10;
-
 var validPassword = false;
+
+//Twillio
+const accountSid = 'ACdcaeb9081ff31c508530cf05cd42463a';
+const authToken = 'eada3ce1bf5a47f8df3ea9c1da0f23f9';
+const client = require('twilio')(accountSid, authToken);
+
+//Slack
+const { IncomingWebhook, WebClient } = require('@slack/client');
+
+// An access token (from your Slack app or custom integration - xoxp, xoxb, or xoxa)
+const slackToken = 'xoxp-330950773028-330950773156-330325484832-2ca578aa761be0c8c82a7a8a6433eec3';
+
+const web = new WebClient(slackToken);
+
+// This argument can be a channel ID, a DM ID, a MPDM ID, or a group ID
+const conversationId = 'D9RQAR4EA';
+
+// See: https://api.slack.com/methods/chat.postMessage
+// web.chat.postMessage({ channel: conversationId, text: 'Hello there' })
+//   .then((res) => {
+//     // `res` contains information about the posted message
+//     console.log('Message sent: ', res.ts);
+//   })
+//   .catch(console.error);
+
+
+const portfolioNotification = new IncomingWebhook('https://hooks.slack.com/services/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');
 
 
 //Schemas
 var messageSchema = require('../schemas/messageSchema');
 var userSchema = require('../schemas/userSchema');
-
-
-
-
-
-// var xssService = {
-//     sanitize: function (req, res, next) {
-//         var data = req.body
-//         for (var key in data) {
-//             if (data.hasOwnProperty(key)) {
-//                 data[key] = xss(data[key]);
-//                 console.log(data[key]);
-//             }
-
-//         }
-//         next();
-//     }
-
-// }
 
 var bcryptService = {
     hash: function (req, res, next) {
@@ -54,17 +59,7 @@ var Message = mongoose.model('messages', messageSchema.message);
 var User = mongoose.model('user', userSchema)
 
 const dbUrl = 'mongodb://nabil:wade5693@ds147668.mlab.com:47668/my-portfolio';
-const riotUrl = 'https://na1.api.riotgames.com'
-const apiRiotKey = 'api_key=RGAPI-cb67b4ca-c092-473f-b15d-7b6431aa35c9'
-var masteryUrl = riotUrl + '/lol/champion-mastery/v3/champion-masteries/by-summoner/80360570/by-champion/103?' + apiRiotKey;
-var summonerUrl = riotUrl + '/lol/summoner/v3/summoners/by-name/FoxyDuo?' + apiRiotKey;
-var summonerMatchesUrl = riotUrl + '/lol/match/v3/matchlists/by-account/235082437/recent?' + apiRiotKey;
 
-
-// middle ware
-// app.use(bodyParser.urlencoded({extended: true}));
-// app.use(bodyParser.json());
-// app.use(cors({origin: true, credentials: true}));
 
 // Mongoose Setup
 mongoose.connect(dbUrl);
@@ -87,31 +82,6 @@ router.get('/messages', (req, res) => {
     });
 });
 
-router.get('/LoLMastery', (req, res) => {
-    request.get({ url: masteryUrl }, function (error, response, body) {
-        if (!error && response.statusCode == 200) {
-            res.send(body);
-        }
-    })
-});
-
-router.get('/LoLSummonerInfo', (req, res) => {
-    request.get({ url: summonerUrl }, function (error, response, body) {
-        if (!error && response.statusCode == 200) {
-            res.send(body);
-        }
-    })
-});
-
-
-router.get('/LoLSummonerMatches', (req, res) => {
-    request.get({ url: summonerMatchesUrl }, function (error, response, body) {
-        if (!error && response.statusCode == 200) {
-            res.send(body)
-        }
-    })
-});
-
 // Sends new Messages to DB
 router.post('/newMessages', (req, res) => {
     var newMessage = Message(req.body);
@@ -122,6 +92,25 @@ router.post('/newMessages', (req, res) => {
         .catch(err => {
             res.status(400).send("unable to save message")
         })
+
+    // client.messages
+    //     .create({
+    //       body: 
+    //         "name: " + JSON.stringify(req.body.name) + 
+    //         "\n" + JSON.stringify(req.body.message),
+    //       to: '+13239755330',
+    //       from: '+13029900536'
+    //     })
+    //     .then(message => process.stdout.write(message.sid));
+    
+    portfolioNotification.send(JSON.stringify(req.body), (error, resp) => {
+        if (error) {
+          return console.error(error);
+        }
+        console.log('Notification sent');
+      });
+    
+
 });
 
 // Registers user
@@ -137,7 +126,6 @@ router.post('/admin/register', bcryptService.hash, (req, res) => {
 
     })
 })
-
 
 
 // Logs users in

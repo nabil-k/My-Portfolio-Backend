@@ -5,6 +5,7 @@ const http = require('http');
 const app = express();
 const mongoose = require('mongoose');
 const routes = require('./server/routes/routes');
+const riotApi = require('./server/routes/riotApi');
 var cors = require('cors');
 
 app.use(cors()) // Use this after the variable declaration
@@ -18,6 +19,7 @@ app.use(cors({origin: true, credentials: true}));
 
 // API for handlling Data
 app.use('/routes',routes);
+app.use('/riotApi',riotApi);
 
 var allowCrossDomain = function(req, res, next) {
   res.header('Access-Control-Allow-Origin', "*");
