@@ -6,40 +6,21 @@ const jwt = require('jsonwebtoken')
 const request = require('request');
 var router = express.Router();
 const mongoose = require('mongoose');
-var app = express();
-var cors = require('cors');
-var bcrypt = require('bcrypt');
+const app = express();
+const cors = require('cors');
+const bcrypt = require('bcrypt');
+const { IncomingWebhook, WebClient } = require('@slack/client');
 var salt = 10;
 var validPassword = false;
 
 
 //Twillio
-const accountSid = 'ACdcaeb9081ff31c508530cf05cd42463a';
-const authToken = 'eada3ce1bf5a47f8df3ea9c1da0f23f9';
+const accountSid = 'accountSid';
+const authToken = 'authToken';
 const client = require('twilio')(accountSid, authToken);
 
 //Slack
-const { IncomingWebhook, WebClient } = require('@slack/client');
-
-// An access token (from your Slack app or custom integration - xoxp, xoxb, or xoxa)
-const slackToken = '<slack-token>';
-
-const web = new WebClient(slackToken);
-
-// This argument can be a channel ID, a DM ID, a MPDM ID, or a group ID
-const conversationId = 'D9RQAR4EA';
-
-// See: https://api.slack.com/methods/chat.postMessage
-// web.chat.postMessage({ channel: conversationId, text: 'Hello there' })
-//   .then((res) => {
-//     // `res` contains information about the posted message
-//     console.log('Message sent: ', res.ts);
-//   })
-//   .catch(console.error);
-
-
-const portfolioNotification = new IncomingWebhook('https://hooks.slack.com/services/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');
-
+var generalChannelWebHook = 'generalChannelWebHook'
 
 //Schemas
 var messageSchema = require('../schemas/messageSchema');
@@ -112,7 +93,6 @@ router.get('/messages',(req, res) => {
             console.log("?")
             console.log(err)
         }else{
-
             db.collection('messages').find().toArray(function (err, result) {
                 if (err) throw err;
                 res.json(result)
@@ -135,15 +115,15 @@ router.post('/newMessages', (req, res) => {
             res.status(400).send("unable to save message")
         })
 
-    // client.messages
-    //     .create({
-    //       body: 
-    //         "name: " + JSON.stringify(req.body.name) + 
-    //         "\n" + JSON.stringify(req.body.message),
-    //       to: '+13239755330',
-    //       from: '+13029900536'
-    //     })
-    //     .then(message => process.stdout.write(message.sid));
+    client.messages
+        .create({
+          body: 
+            "name: " + JSON.stringify(req.body.name) + 
+            "\n" + JSON.stringify(req.body.message),
+          to: '+13239755330',
+          from: '+13029900536'
+        })
+        .then(message => process.stdout.write(message.sid));
     
     portfolioNotification.send(JSON.stringify(req.body), (error, resp) => {
         if (error) {
@@ -170,6 +150,7 @@ router.post('/admin/register', bcryptService.hash, (req, res) => {
 })
 
 // Logs users in
+var user;
 router.post('/admin/login',(req, res) => {
     User.findOne({ "email": req.body.email }, 'password name', function (err, data) {
         if (err) throw err;
@@ -182,10 +163,19 @@ router.post('/admin/login',(req, res) => {
         } else {
             bcrypt.compare(req.body.password, data.password, function (err, resp) {
                 if (err) throw err;
-                user = {name: req.body.name}
+                user = {name: data.name}
+                console.log(user)
                 if (resp == true) {
+                    const loginNotification = new IncomingWebhook(generalChannelWebHook);
+                    const currentTime = new Date().toTimeString();
+                    loginNotification.send(`${user.name} logged in at ${currentTime}`, (error, slackRes) => {
+                    if (error) {
+                        return console.error(error);
+                    }
+                    console.log('Notification sent');
+                    });
 
-                    const token = jwt.sign({user},'secret_key',{ expiresIn: '60' });
+                    const token = jwt.sign({user},'secret_key',{ expiresIn: '120s' });
                     console.log("user's token: ",token)
 
                     res.status(200).send({
