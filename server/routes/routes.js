@@ -26,10 +26,12 @@ var generalChannelWebHook = 'https://hooks.slack.com/services/T9QTYNR0U/B9SF4HEP
 var messageSchema = require('../schemas/messageSchema');
 var userSchema = require('../schemas/userSchema');
 var blogPostSchema = require('../schemas/blogSchema');
+var commentSchema = require('../schemas/commentSchema');
 
 var Message = mongoose.model('messages', messageSchema.message);
-var User = mongoose.model('user', userSchema)
-var BlogPost = mongoose.model('blogPost', blogPostSchema)
+var User = mongoose.model('user', userSchema);
+var BlogPost = mongoose.model('blogPost', blogPostSchema);
+var Comment = mongoose.model('comments', commentSchema);
 
 var bcryptService = {
     hash: function (req, res, next) {
@@ -211,26 +213,76 @@ router.post('/newBlogPost', (req, res) => {
         })
 })
 
-// Gets blog posts
-router.get('/blogPosts', (req, res) => {
-    db.collection('blogposts').find().toArray(function (err, result) {
-        if (err) throw err;
-        res.json(result)
-    });
+// Gets Blog posts
+router.post('/getBlogPost', (req, res) => {
+    BlogPost.find({_id:req.body._id},function(err, blog){
+        if(err){
+            console.log(err)
+            res.status(400).send("Something went wrong, the blogs couldn't be retreived")
+        }else{
+            res.status(200).send({
+                type:true,
+                statusMsg:"Retrieved Blog Post",
+                blog:blog
+            })
+        }
+    }) 
 });
 
-// Adds Comments to Blogs
-router.put('/postComment', (req,res)=>{
-    var id = req.body._id
-    console.log(id)
-    BlogPost.findOneAndUpdate({_id: id}, {$push:{"comments":{comment:req.body.comment}}}, function(err,blog){
-        if (err){
+// Return all the IDs from all of the Blogs
+router.get('/allBlogPostsIds', (req, res) => {
+    var blogIdQuery = BlogPost.find({}).select('_id')
+    blogIdQuery.exec(function (err, result) {
+        if (err) throw err;
+        res.json(result)
+    })
+});
+
+
+// Posts Comments
+router.post('/postComment', (req,res)=>{
+    var newComment = Comment(req.body)
+    newComment.save()
+        .then(item=>{
+            res.send("new comment posted")
+        })
+        .catch(err =>{
+            res.status(400).send("comment has not been able to post")
+        })
+})
+
+// Grabs comments for a particular blog
+router.post('/getBlogComments',(req,res)=>{
+    console.log(req.body.discussionId)
+    Comment.find({discussionId:req.body.discussionId},function(err, comments){
+        if(err){
             console.log(err)
-            res.status(500).send("Something went wrong, the comment was unable to be saved")
+            res.status(400).send("Something went wrong, the blogs couldn't be retreived")
+        }else if(comments == []){
+            res.status(400).send("No comments found")
         }else{
-            res.status(200).send("Comment Post")
+            res.status(200).send({
+                type:true,
+                statusMsg:"Retrieved Comments for the Blog",
+                comments:comments
+            })
         }
     })
-})
+}) 
+
+
+// Adds Comments to Blogs
+// router.put('/postComment', (req,res)=>{
+//     var id = req.body._id;
+//     console.log(id)
+//     BlogPost.findOneAndUpdate({_id: id}, {$push:{"comments":{comment:req.body.comment}}}, function(err,blog){
+//         if (err){
+//             console.log(err)
+//             res.status(500).send("Something went wrong, the comment was unable to be saved")
+//         }else{
+//             res.status(200).send("Comment Post")
+//         }
+//     })
+// })
 
 module.exports = router;
