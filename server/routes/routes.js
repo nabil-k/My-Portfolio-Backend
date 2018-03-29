@@ -8,7 +8,7 @@ var router = express.Router();
 const mongoose = require('mongoose');
 const app = express();
 const cors = require('cors');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { IncomingWebhook, WebClient } = require('@slack/client');
 var salt = 10;
 var validPassword = false;
@@ -249,6 +249,23 @@ router.post('/postComment', (req,res)=>{
         .catch(err =>{
             res.status(400).send("comment has not been able to post")
         })
+})
+
+router.post('/postReply', (req,res)=>{
+    replyComment = Comment(req.body.reply)
+    Comment.findOneAndUpdate({_id:req.body.id},{$push:{replies:replyComment}}, function(err,comment){
+        if(err){
+            console.log(err)
+            res.status(400).send("Something went wrong")
+        }else{
+            res.status(200).send({
+                type:true,
+                statusMsg:"Retrieved Comment",
+                comments:comment
+            })
+        }
+    })
+    
 })
 
 // Grabs comments for a particular blog
